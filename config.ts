@@ -1,0 +1,118 @@
+
+export const AI_CONFIG = {
+  // Current active provider.
+  provider: 'AZURE' as 'GEMINI' | 'AZURE', 
+
+  // Google Gemini Configuration
+  gemini: {
+    apiKey: process.env.API_KEY || '',
+    liveModel: 'gemini-2.5-flash-native-audio-preview-09-2025',
+    analysisModel: 'gemini-2.5-flash',
+    voiceName: 'Kore'
+  },
+
+  // Azure OpenAI Configuration
+  azure: {
+    apiKey: process.env.AZURE_OPENAI_API_KEY || '',
+    endpoint: process.env.AZURE_OPENAI_ENDPOINT || '', // e.g., https://my-resource.openai.azure.com/
+    deploymentName: 'gpt-4o-realtime-preview', 
+    voiceName: 'alloy',
+    apiVersion: '2024-10-01-preview',
+    // Placeholder for Azure Storage / Function endpoint
+    storageEndpoint: 'https://placeholder-func.azurewebsites.net/api/uploadSession' 
+  },
+
+  // Entra ID (Azure AD) Configuration
+  auth: {
+    enabled: false, // Set to TRUE to enforce SSO. False for Development/Testing.
+    clientId: process.env.AZURE_CLIENT_ID || '00000000-0000-0000-0000-000000000000',
+    authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID || 'common'}`,
+    redirectUri: window.location.origin
+  }
+};
+
+export const getAnalysisModelName = () => {
+  return AI_CONFIG.provider === 'GEMINI' ? AI_CONFIG.gemini.analysisModel : AI_CONFIG.azure.deploymentName;
+};
+
+export const getLiveModelName = () => {
+  return AI_CONFIG.provider === 'GEMINI' ? AI_CONFIG.gemini.liveModel : AI_CONFIG.azure.deploymentName;
+};
+
+// --- Profile & Config Manager ---
+
+export interface ProfileConfig {
+  id: string;
+  name: string;
+  role: string; // The specific agent role title
+  description: string;
+  systemInstruction: string;
+  isAvailable: boolean;
+  color: string;
+  iconName: 'Briefcase' | 'TrendingUp' | 'Target'; 
+}
+
+const BA_INSTRUCTION = `
+You are an expert Business Analyst Intake Agent (IA). 
+Your goal is to conduct a structured project intake interview to build a Project Charter, Requirements, and User Stories.
+
+PHASE 1: CHARTER
+- Ask for the Problem Statement.
+- Ask for Business Objectives and Success Metrics.
+- Identify Stakeholders.
+- Clarify Constraints, Budget, and Timeline.
+
+PHASE 2: REQUIREMENTS & STORIES
+- Ask "Who are the users?" (Personas)
+- For each persona, ask "What do they need to do?" (User Stories).
+- Dig for Acceptance Criteria ("How will we know this is working?").
+- Ask about functional and non-functional requirements (Performance, Security).
+
+BEHAVIOR:
+- Ask one or two questions at a time.
+- Be progressive. Don't ask for everything at once.
+- If the user is vague, propose options.
+`;
+
+export class ConfigManager {
+  private static profiles: ProfileConfig[] = [
+    {
+      id: 'business_analyst',
+      name: 'Business Analyst',
+      role: 'Requirements Specialist',
+      description: 'Conducts structured project intake, gathering detailed requirements, user stories, and charter definitions.',
+      systemInstruction: BA_INSTRUCTION,
+      isAvailable: true,
+      color: 'blue',
+      iconName: 'Briefcase'
+    },
+    {
+      id: 'value_office',
+      name: 'Value Office',
+      role: 'Value Architect',
+      description: 'Focuses on ROI analysis, strategic alignment, and defining value realization metrics for the portfolio.',
+      systemInstruction: 'You are a Value Office Agent. Focus on ROI and Strategy.',
+      isAvailable: false,
+      color: 'emerald',
+      iconName: 'TrendingUp'
+    },
+    {
+      id: 'product_manager',
+      name: 'Product Manager',
+      role: 'Product Owner',
+      description: 'Builds product roadmaps, prioritizes features based on market fit, and defines customer journeys.',
+      systemInstruction: 'You are a Product Manager Agent. Focus on Roadmaps and Market Fit.',
+      isAvailable: false,
+      color: 'purple',
+      iconName: 'Target'
+    }
+  ];
+
+  static getAllProfiles(): ProfileConfig[] {
+    return this.profiles;
+  }
+
+  static getProfile(id: string): ProfileConfig | undefined {
+    return this.profiles.find(p => p.id === id);
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "IntakeAI - Business Analyst Agent",
+  "description": "An intelligent conversational system that conducts structured project intake interviews using Gemini Live API and multi-agent collaboration.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
