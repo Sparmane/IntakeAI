@@ -1,6 +1,6 @@
 # Integration & Developer Guide
 
-This document outlines the architecture, configuration, and deployment steps for the IntakeAI application. The app supports a dual-provider architecture (Google Gemini & Azure OpenAI) and is designed for deployment on Azure Static Web Apps.
+This document outlines the architecture, configuration, and deployment steps for the IntakeAI application. The app supports a dual-provider architecture (Google Gemini & Azure OpenAI) and is designed for deployment on Azure.
 
 ---
 
@@ -10,7 +10,7 @@ This document outlines the architecture, configuration, and deployment steps for
 
 ### Required Variables
 
-Create a `.env` file for local development or set these in your Azure Static Web App configuration.
+Create a `.env` file for local development or set these in your Azure App Service configuration.
 
 **For Azure OpenAI (Default):**
 ```bash
@@ -77,32 +77,6 @@ The app sends the following JSON body:
 }
 ```
 
-**Example Azure Function (Python v2):**
-
-```python
-import azure.functions as func
-import json
-import logging
-
-def main(req: func.HttpRequest, outputBlob: func.Out[func.InputStream]) -> func.HttpResponse:
-    try:
-        req_body = req.get_json()
-        export_id = req_body.get('export_id')
-        
-        # 1. Save JSON Data to Blob Storage
-        # You would typically use the outputBlob binding here or the SDK
-        
-        # 2. Save Markdown Doc to Blob Storage
-        doc_content = req_body.get('document_content')
-        
-        return func.HttpResponse(
-            json.dumps({"success": true, "guid": export_id}),
-            mimetype="application/json"
-        )
-    except ValueError:
-        return func.HttpResponse("Invalid JSON", status_code=400)
-```
-
 ---
 
 ## 4. Authentication (Entra ID / Azure AD)
@@ -122,28 +96,39 @@ The application includes a pre-built Login Screen and Auth Service compatible wi
     *   Set `auth.enabled` to `true`.
     *   Update `clientId` and `authority` (Tenant ID).
 
-3.  **Deploy:**
-    *   Once enabled, the `App.tsx` will check `authService.checkAuth()`. If not authenticated, it renders `<LoginScreen />` instead of the main app.
-
 ---
 
 ## 5. Deployment Guide
 
-### Azure Static Web Apps (Recommended)
+### Option 1: Azure Static Web Apps (Recommended)
 
-1.  **Push Code**: Commit your changes to GitHub.
+1.  **Push Code**: Commit your changes to GitHub/Azure DevOps.
 2.  **Create Resource**:
     *   Azure Portal > Create "Static Web App".
-    *   Link your GitHub repository.
+    *   Link your repository.
     *   **Build Preset**: React.
     *   **App Location**: `/`.
-    *   **Output Location**: `dist` (or `build` depending on bundler).
+    *   **Output Location**: `dist`.
 3.  **Environment Variables**:
     *   In the Azure Portal resource, go to **Settings > Environment variables**.
     *   Add the variables listed in Section 1.
 
-### Troubleshooting Azure Realtime API
+### Option 2: Azure Web App (App Service)
 
-*   **401 Unauthorized**: Check your `AZURE_OPENAI_API_KEY`.
-*   **404 Not Found**: Verify your `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_DEPLOYMENT`. The model **must** be a "Realtime" capable model (e.g., `gpt-4o-realtime-preview`) deployed in a supported region (e.g., East US 2, Sweden Central). Standard GPT-4o deployments do not support the `/realtime` WebSocket endpoint.
-*   **WebSocket Error**: Ensure your corporate firewall allows `wss://` connections to `*.openai.azure.com`.
+If you prefer a standard App Service Plan (e.g., for VNET integration or specific scaling needs):
+
+1.  **Build the Project**:
+    Run `npm install` followed by `npm run build`. This creates a `dist` folder.
+    
+2.  **Deploy**:
+    Deploy the contents of the `dist` folder to your App Service.
+    *   **Windows (IIS)**: Ensure `web.config` is included in the root of your deployment to handle client-side routing.
+    *   **Linux (Node)**: You may need a simple `server.js` (Express/Serve) to serve the static files, or use PM2 to serve the folder.
+
+3.  **Startup Command (Linux)**:
+    If deploying to a Node runtime on Linux, set the startup command to serve the static folder:
+    `npx serve -s dist`
+
+4.  **Environment Variables**:
+    Add the variables in **Settings > Configuration** in the Azure Portal.
+    *Note: Since this is a static build, environment variables are baked in at build time. For runtime environment variable injection in App Service, you may need a runtime config loader pattern.*

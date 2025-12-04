@@ -24,7 +24,8 @@ export const AI_CONFIG = {
 
   // Entra ID (Azure AD) Configuration
   auth: {
-    enabled: false, // Set to TRUE to enforce SSO. False for Development/Testing.
+    // Auto-enable auth if the Client ID is provided in the environment (and not the default placeholder)
+    enabled: !!process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_ID !== '00000000-0000-0000-0000-000000000000', 
     clientId: process.env.AZURE_CLIENT_ID || '00000000-0000-0000-0000-000000000000',
     authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID || 'common'}`,
     redirectUri: window.location.origin
