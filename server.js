@@ -29,7 +29,8 @@ app.get('/env-config.js', (req, res) => {
     AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID,
     AZURE_TENANT_ID: process.env.AZURE_TENANT_ID,
     REACT_APP_STORAGE_ENDPOINT: process.env.REACT_APP_STORAGE_ENDPOINT,
-    AZURE_OPENAI_DEPLOYMENT: process.env.AZURE_OPENAI_DEPLOYMENT
+    AZURE_OPENAI_DEPLOYMENT: process.env.AZURE_OPENAI_DEPLOYMENT,
+    AZURE_OPENAI_ANALYSIS_DEPLOYMENT: process.env.AZURE_OPENAI_ANALYSIS_DEPLOYMENT
   };
 
   res.setHeader('Content-Type', 'application/javascript');
@@ -55,4 +56,9 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log('--- Azure OpenAI Configuration ---');
+  console.log(`Endpoint:            ${process.env.AZURE_OPENAI_ENDPOINT || '❌ Not Set'}`);
+  console.log(`Voice Deployment:    ${process.env.AZURE_OPENAI_DEPLOYMENT || '❌ Not Set (Realtime API will fail)'}`);
+  console.log(`Analysis Deployment: ${process.env.AZURE_OPENAI_ANALYSIS_DEPLOYMENT || '⚠️  Not Set (Fallback to Voice Deployment)'}`);
+  console.log('----------------------------------');
 });

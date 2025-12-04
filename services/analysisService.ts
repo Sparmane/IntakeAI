@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { FullSessionExport } from "../types";
 import { AI_CONFIG, getAnalysisModelName } from "../config";
@@ -193,7 +194,7 @@ export const analyzeConversation = async (
     } else {
       // --- AZURE OPENAI IMPLEMENTATION ---
       try {
-        const deployment = AI_CONFIG.azure.deploymentName; // Or a specific analysis deployment if separated
+        const deployment = AI_CONFIG.azure.analysisDeploymentName; // Use the specific analysis deployment
         const endpoint = AI_CONFIG.azure.endpoint.replace(/\/$/, ""); 
         const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${AI_CONFIG.azure.apiVersion}`;
         

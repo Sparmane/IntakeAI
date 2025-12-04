@@ -157,6 +157,7 @@ declare global {
       AZURE_TENANT_ID?: string;
       REACT_APP_STORAGE_ENDPOINT?: string;
       AZURE_OPENAI_DEPLOYMENT?: string;
+      AZURE_OPENAI_ANALYSIS_DEPLOYMENT?: string;
     };
   }
 }

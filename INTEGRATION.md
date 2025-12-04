@@ -1,70 +1,85 @@
 # Integration & Developer Guide
 
-This document outlines the architecture, configuration, and deployment steps for the IntakeAI application. The app supports a dual-provider architecture (Google Gemini & Azure OpenAI) and is designed for deployment on Azure.
+This document outlines the architecture, configuration, and deployment steps for the IntakeAI application. The app is designed for deployment on **Azure Web App Service** (Node.js or Container) and supports runtime configuration injection.
 
 ---
 
 ## 1. Environment Configuration
 
- The application relies on `config.ts` to manage settings. While some defaults are hardcoded for development, sensitive keys should be passed via Environment Variables during build/deployment.
+The application uses a **Runtime Injection** strategy (`/env-config.js`). This allows you to manage settings via Azure App Service "Environment Variables" without rebuilding the React application.
+
+### Local Development
+Create a `.env` file in the root directory using the provided example.
+```bash
+cp .env.example .env
+```
+Fill in your keys in `.env`. This file is git-ignored to protect your secrets.
 
 ### Required Variables
+Set these in your **Azure Portal > App Service > Settings > Environment variables**.
 
-Create a `.env` file for local development or set these in your Azure App Service configuration.
-
-**For Azure OpenAI (Default):**
+**Azure OpenAI Resources:**
 ```bash
-# Your Azure OpenAI Resource Endpoint (e.g., https://my-resource.openai.azure.com/)
+# Your Azure OpenAI Resource Endpoint
 AZURE_OPENAI_ENDPOINT=https://<resource-name>.openai.azure.com/
 
 # Your Azure OpenAI API Key
 AZURE_OPENAI_API_KEY=<your-key>
 
-# The Deployment Name in Azure AI Studio
-# NOTE: This deployment must support the Realtime API (e.g., gpt-4o-realtime-preview)
+# 1. Realtime Voice Model (Voice Agent)
+# Must be a "gpt-4o-realtime-preview" deployment
 AZURE_OPENAI_DEPLOYMENT=gpt-4o-realtime-preview
 
-# (Optional) Azure Function URL for "Push to Cloud" feature
+# 2. Analysis/Chat Model (Data Extraction Agent)
+# Should be a standard chat model like "gpt-4o" or "gpt-35-turbo"
+# This model is used to analyze the transcript and convert it to JSON.
+# If omitted, the app will try to use the Realtime deployment for analysis (which may work but is less efficient).
+AZURE_OPENAI_ANALYSIS_DEPLOYMENT=gpt-4o
+```
+
+**Authentication (Entra ID / Azure AD):**
+*Setting `AZURE_CLIENT_ID` automatically enables SSO enforcement.*
+```bash
+# Application (client) ID from App Registration
+AZURE_CLIENT_ID=<client-id-guid>
+
+# Directory (tenant) ID
+AZURE_TENANT_ID=<tenant-id-guid>
+```
+
+**Repository Storage (Auto-Save):**
+```bash
+# URL to your Azure Function or Backend that accepts the JSON save file
 REACT_APP_STORAGE_ENDPOINT=https://<your-func-app>.azurewebsites.net/api/uploadSession
-```
-
-**For Google Gemini (Optional fallback):**
-```bash
-API_KEY=<your-gemini-api-key>
-```
-
-**For Entra ID (SSO):**
-```bash
-AZURE_CLIENT_ID=<client-id-from-app-registration>
-AZURE_TENANT_ID=<your-tenant-id>
 ```
 
 ---
 
 ## 2. Architecture Overview
 
-### Realtime Voice (Conversational Agent)
-*   **Provider**: Azure OpenAI Realtime API (`/openai/realtime`).
-*   **Protocol**: WebSockets (`wss://`).
-*   **Behavior**: Streams raw PCM16 audio (24kHz) to the model. The model handles Voice Activity Detection (VAD) and streams back audio deltas.
-*   **File**: `App.tsx` handles the WebSocket connection and audio buffer management.
+### Runtime Configuration
+*   **Mechanism**: The `server.js` (Express) server reads `process.env` from the Azure container environment.
+*   **Injection**: It serves a dynamic file at `/env-config.js` which attaches these values to `window.env` in the browser.
+*   **Benefit**: You can rotate keys or change endpoints in the Azure Portal and simply restart the app; no code rebuild is required.
 
-### Analyst Agent (Data Processor)
-*   **Provider**: Azure OpenAI Chat Completions (`/chat/completions`).
-*   **Protocol**: REST (HTTPS).
-*   **Behavior**: Takes the conversation transcript and current JSON state, then uses `response_format: { type: "json_object" }` to strictly enforce the output schema defined in `services/analysisService.ts`.
+### Agents
+1.  **Realtime Agent (Voice)**: Connects via WebSocket (`wss://`) to Azure OpenAI Realtime API. Handles VAD and audio streaming.
+    *   Configured via `AZURE_OPENAI_DEPLOYMENT`.
+2.  **Analyst Agent (Logic)**: Connects via REST (`https://`) to Azure OpenAI Chat Completions. Uses JSON Mode to structure requirements.
+    *   Configured via `AZURE_OPENAI_ANALYSIS_DEPLOYMENT`.
 
 ---
 
-## 3. Storage Integration ("Push to Cloud")
+## 3. Storage Integration (Auto-Save)
 
-The application includes a "Push to Cloud" button in the Artifact Viewer. This sends a POST request to the configured `storageEndpoint`.
+The application generates a "Save File" containing the structured JSON session data and a Markdown report.
 
-### Expected Backend Implementation
-You need to deploy an Azure Function (Python/Node/C#) to receive this data.
+**Triggers:**
+1.  **Manual**: User clicks "Push to Cloud" in the Artifact Viewer.
+2.  **Automatic**: Triggered when the user clicks "Exit" or "Sign Out".
 
-**Request Payload Schema:**
-The app sends the following JSON body:
+**Payload Schema:**
+The application sends a `POST` request to `REACT_APP_STORAGE_ENDPOINT` with the following body:
 ```json
 {
   "export_id": "guid-uuid-v4",
@@ -79,61 +94,54 @@ The app sends the following JSON body:
 
 ---
 
-## 4. Authentication (Entra ID / Azure AD)
+## 4. Authentication (Entra ID)
 
-The application includes a pre-built Login Screen and Auth Service compatible with MSAL (Microsoft Authentication Library).
+The app uses MSAL (Microsoft Authentication Library) for Single Sign-On.
 
-### How to Enable SSO
+**Behavior:**
+*   If `AZURE_CLIENT_ID` is present in the environment variables, the app will strictly require login before accessing the workspace.
+*   If `AZURE_CLIENT_ID` is missing or set to the default zero-GUID, the app enters **Development Mode** (Auth Bypassed).
 
-1.  **Register an App in Azure Entra ID:**
-    *   Go to Azure Portal > Entra ID > App Registrations > New Registration.
-    *   **Name**: IntakeAI.
-    *   **Supported Account Types**: Single Tenant (Corporate) or Multitenant.
-    *   **Redirect URI (SPA)**: `https://<your-static-web-app-url>` (and `http://localhost:3000` for dev).
-
-2.  **Update Configuration:**
-    *   Open `config.ts`.
-    *   Set `auth.enabled` to `true`.
-    *   Update `clientId` and `authority` (Tenant ID).
+**Azure Setup:**
+1.  Register an App in Entra ID.
+2.  Add `Single-page application` platform.
+3.  Add Redirect URI: `https://<your-app-name>.azurewebsites.net` (and `http://localhost:3000` for local dev).
+4.  Grant `User.Read` permission.
 
 ---
 
-## 5. Deployment Guide
+## 5. Deployment Guide (Azure Web App)
 
-The application uses **Vite for building** the static assets and **Express.js for serving** them in production. This ensures compatibility with Azure App Service routing and provides headers for security and performance.
+This is the recommended deployment method as it supports the `server.js` runtime configuration.
 
-### Option 1: Azure Static Web Apps (Recommended)
+### Steps
 
-1.  **Push Code**: Commit your changes to GitHub/Azure DevOps.
-2.  **Create Resource**:
-    *   Azure Portal > Create "Static Web App".
-    *   Link your repository.
-    *   **Build Preset**: React.
-    *   **App Location**: `/`.
-    *   **Output Location**: `dist`.
-3.  **Environment Variables**:
-    *   In the Azure Portal resource, go to **Settings > Environment variables**.
-    *   Add the variables listed in Section 1.
+1.  **Build the Project:**
+    ```bash
+    npm install
+    npm run build
+    ```
+    This creates a `dist/` directory with the React assets.
 
-### Option 2: Azure Web App (App Service) - Node.js
+2.  **Prepare Artifact:**
+    Ensure your deployment artifact (zip or container) includes:
+    *   `dist/` (folder)
+    *   `node_modules/` (production dependencies)
+    *   `server.js`
+    *   `package.json`
 
-This method uses the included `server.js` (Express) script to serve the application. This is ideal for scenarios where you need custom server-side logic or specific compliance headers.
+3.  **Deploy to Azure Web App:**
+    *   Create a **Web App** resource (Runtime: Node 20 LTS).
+    *   Deploy your artifact via Azure CLI, VS Code, or GitHub Actions.
 
-1.  **Build**:
-    Run `npm install` followed by `npm run build`. This creates a `dist` folder with the compiled assets.
+4.  **Startup Command:**
+    Azure should detect `package.json`, but if needed, set the Startup Command in **Configuration > General Settings**:
+    ```bash
+    node server.js
+    ```
 
-2.  **Prepare Artifact**:
-    Ensure `server.js`, `package.json`, `node_modules`, and the `dist` folder are included in your deployment artifact.
-    *   *Note: If using Azure DevOps/GitHub Actions, `npm install --production` can be run to exclude devDependencies, but ensure `compression` and `express` are in regular `dependencies`.*
+5.  **Configure Environment:**
+    Go to **Configuration > Environment variables** and add the keys listed in Section 1.
 
-3.  **Deployment**:
-    Deploy to an Azure Web App configured with a **Node.js runtime** (e.g., Node 20 LTS).
-
-4.  **Startup Command**:
-    Azure usually detects `npm start` automatically from `package.json`.
-    If not, set the startup command to: `node server.js`
-
-5.  **Environment Variables**:
-    Add the variables in **Settings > Configuration** in the Azure Portal.
-    *   `PORT` is automatically injected by Azure; `server.js` listens on it.
-    *   Add your `AZURE_OPENAI_API_KEY` etc. **Note:** Since Vite builds the app, environment variables used in `config.ts` (via `process.env`) must be present at **build time** (in your CI/CD pipeline) to be baked into the JS bundles, OR you must implement a runtime injection strategy if you want to change keys without rebuilding.
+6.  **Verify:**
+    Load the site. Open DevTools > Console and type `window.env`. You should see your Azure settings populated.
