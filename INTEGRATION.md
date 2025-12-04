@@ -100,6 +100,8 @@ The application includes a pre-built Login Screen and Auth Service compatible wi
 
 ## 5. Deployment Guide
 
+The application uses **Vite for building** the static assets and **Express.js for serving** them in production. This ensures compatibility with Azure App Service routing and provides headers for security and performance.
+
 ### Option 1: Azure Static Web Apps (Recommended)
 
 1.  **Push Code**: Commit your changes to GitHub/Azure DevOps.
@@ -115,21 +117,23 @@ The application includes a pre-built Login Screen and Auth Service compatible wi
 
 ### Option 2: Azure Web App (App Service) - Node.js
 
-This method uses the `server.js` (Express) script to serve the application, which is robust for standard App Service Plans.
+This method uses the included `server.js` (Express) script to serve the application. This is ideal for scenarios where you need custom server-side logic or specific compliance headers.
 
 1.  **Build**:
     Run `npm install` followed by `npm run build`. This creates a `dist` folder with the compiled assets.
 
 2.  **Prepare Artifact**:
     Ensure `server.js`, `package.json`, `node_modules`, and the `dist` folder are included in your deployment artifact.
+    *   *Note: If using Azure DevOps/GitHub Actions, `npm install --production` can be run to exclude devDependencies, but ensure `compression` and `express` are in regular `dependencies`.*
 
 3.  **Deployment**:
-    Deploy to an Azure Web App configured with a **Node.js runtime**.
+    Deploy to an Azure Web App configured with a **Node.js runtime** (e.g., Node 20 LTS).
 
 4.  **Startup Command**:
-    Azure usually detects `npm start` automatically. If not, set the startup command to:
-    `node server.js`
+    Azure usually detects `npm start` automatically from `package.json`.
+    If not, set the startup command to: `node server.js`
 
 5.  **Environment Variables**:
     Add the variables in **Settings > Configuration** in the Azure Portal.
-    *   Note: `PORT` is automatically injected by Azure, and `server.js` is configured to listen on it.
+    *   `PORT` is automatically injected by Azure; `server.js` listens on it.
+    *   Add your `AZURE_OPENAI_API_KEY` etc. **Note:** Since Vite builds the app, environment variables used in `config.ts` (via `process.env`) must be present at **build time** (in your CI/CD pipeline) to be baked into the JS bundles, OR you must implement a runtime injection strategy if you want to change keys without rebuilding.

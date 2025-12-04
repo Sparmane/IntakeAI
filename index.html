@@ -6,6 +6,8 @@
     <title>IntakeAI - Business Analyst Agent</title>
     <!-- We keep the CDN for Tailwind to minimize config changes, but ideally move to build-time CSS for production -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Runtime Environment Configuration for Azure App Service -->
+    <script src="/env-config.js"></script>
     <style>
       body {
         background-color: #0f172a; /* Slate 900 */
@@ -44,7 +46,8 @@
     "@azure/msal-browser": "https://aistudiocdn.com/@azure/msal-browser@^4.27.0",
     "express": "https://aistudiocdn.com/express@^5.2.1",
     "url": "https://aistudiocdn.com/url@^0.11.4",
-    "path": "https://aistudiocdn.com/path@^0.12.7"
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "compression": "https://aistudiocdn.com/compression@^1.8.1"
   }
 }
 </script>

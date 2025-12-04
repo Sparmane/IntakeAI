@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { 
   ConnectionState, 
@@ -11,6 +12,7 @@ import {
 import { createAudioContext, createBlob, decodeAudioData, decode, AUDIO_SAMPLE_RATE_INPUT, AUDIO_SAMPLE_RATE_OUTPUT } from './utils/audioUtils';
 import { analyzeConversation } from './services/analysisService';
 import { authService } from './services/authService';
+import { uploadSessionToCloud } from './services/storageService'; // Imported for auto-save
 import { AI_CONFIG, getLiveModelName, ConfigManager, ProfileConfig } from './config';
 
 import { VoiceVisualizer } from './components/VoiceVisualizer';
@@ -22,7 +24,7 @@ import { LandingPage } from './components/LandingPage';
 import { LoginScreen } from './components/LoginScreen';
 
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
-import { Mic, AlertCircle, Pause, Play, Save, Trash2, History, Upload, ChevronLeft, LogOut, User as UserIcon } from 'lucide-react';
+import { Mic, AlertCircle, Pause, Play, Save, Trash2, History, Upload, ChevronLeft, LogOut, User as UserIcon, Loader2 } from 'lucide-react';
 
 const STORAGE_KEY = 'intake_ai_session_v1';
 
@@ -43,6 +45,7 @@ const App: React.FC = () => {
   const [sessionData, setSessionData] = useState<FullSessionExport>(createInitialSessionData());
   const [hasSavedSession, setHasSavedSession] = useState<boolean>(false);
   const [showResumeModal, setShowResumeModal] = useState<boolean>(false);
+  const [isSavingToCloud, setIsSavingToCloud] = useState<boolean>(false); // State for auto-save
   
   const [audioLevel, setAudioLevel] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +97,8 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
+    // Attempt auto-save on logout if we have data
+    await performAutoSave();
     await authService.logout();
     setCurrentUser(null);
     clearSession();
@@ -161,6 +166,28 @@ const App: React.FC = () => {
     transcriptRef.current = "";
     uploadedContextRef.current = "";
     setMessages([]);
+  };
+
+  const performAutoSave = async () => {
+    // Only upload if we have meaningful data
+    if (sessionData.completeness_percentage > 5 || transcriptRef.current.length > 50) {
+      try {
+        setIsSavingToCloud(true);
+        console.log("Automatically backing up session to cloud repository...");
+        await uploadSessionToCloud(sessionData);
+      } catch (e) {
+        console.warn("Auto-save to cloud failed:", e);
+      } finally {
+        setIsSavingToCloud(false);
+      }
+    }
+  };
+
+  const handleExitSession = async () => {
+    // Trigger auto-save then disconnect
+    await performAutoSave();
+    saveSession();
+    disconnect();
   };
 
   // Clean up on unmount
@@ -662,6 +689,11 @@ const App: React.FC = () => {
                   <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 border border-slate-700 text-[10px] uppercase">
                      {AI_CONFIG.provider}
                   </span>
+                  {isSavingToCloud && (
+                    <span className="flex items-center gap-1 text-[10px] text-blue-300 bg-blue-900/20 px-1.5 py-0.5 rounded border border-blue-900/50">
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" /> Saving...
+                    </span>
+                  )}
                </div>
              </div>
           </div>
@@ -714,7 +746,7 @@ const App: React.FC = () => {
                 <button 
                   onClick={handleLogout}
                   className="p-2 text-slate-500 hover:text-white hover:bg-slate-800 rounded-full transition-colors"
-                  title="Sign Out"
+                  title="Sign Out & Auto-Save"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -741,10 +773,7 @@ const App: React.FC = () => {
                  </button>
 
                  <button 
-                  onClick={() => {
-                    saveSession();
-                    disconnect();
-                  }}
+                  onClick={handleExitSession}
                   className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 px-4 py-2.5 rounded-full font-semibold transition-all whitespace-nowrap"
                   title="Save and Exit"
                  >

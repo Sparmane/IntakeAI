@@ -1,4 +1,5 @@
 
+
 export enum AgentRole {
   CONVERSATION = 'Conversation Agent',
   ANALYST = 'Requirements Analyst',
@@ -143,6 +144,21 @@ export interface AppState {
   messages: Message[];
   sessionData: FullSessionExport;
   audioLevel: number;
+}
+
+// Global Window Interface for Runtime Config
+declare global {
+  interface Window {
+    env?: {
+      API_KEY?: string;
+      AZURE_OPENAI_API_KEY?: string;
+      AZURE_OPENAI_ENDPOINT?: string;
+      AZURE_CLIENT_ID?: string;
+      AZURE_TENANT_ID?: string;
+      REACT_APP_STORAGE_ENDPOINT?: string;
+      AZURE_OPENAI_DEPLOYMENT?: string;
+    };
+  }
 }
 
 // Initial State Factory

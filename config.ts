@@ -1,11 +1,20 @@
 
+
+// Helper to get environment variable from Runtime (window.env) or Build time (process.env)
+const getEnv = (key: keyof NonNullable<Window['env']> | string): string => {
+  if (typeof window !== 'undefined' && window.env && key in window.env) {
+    return (window.env as any)[key] || '';
+  }
+  return (process.env as any)[key] || '';
+};
+
 export const AI_CONFIG = {
   // Current active provider.
   provider: 'AZURE' as 'GEMINI' | 'AZURE', 
 
   // Google Gemini Configuration
   gemini: {
-    apiKey: process.env.API_KEY || '',
+    apiKey: getEnv('API_KEY'),
     liveModel: 'gemini-2.5-flash-native-audio-preview-09-2025',
     analysisModel: 'gemini-2.5-flash',
     voiceName: 'Kore'
@@ -13,21 +22,21 @@ export const AI_CONFIG = {
 
   // Azure OpenAI Configuration
   azure: {
-    apiKey: process.env.AZURE_OPENAI_API_KEY || '',
-    endpoint: process.env.AZURE_OPENAI_ENDPOINT || '', // e.g., https://my-resource.openai.azure.com/
-    deploymentName: 'gpt-4o-realtime-preview', 
+    apiKey: getEnv('AZURE_OPENAI_API_KEY'),
+    endpoint: getEnv('AZURE_OPENAI_ENDPOINT'), // e.g., https://my-resource.openai.azure.com/
+    deploymentName: getEnv('AZURE_OPENAI_DEPLOYMENT') || 'gpt-4o-realtime-preview', 
     voiceName: 'alloy',
     apiVersion: '2024-10-01-preview',
-    // Placeholder for Azure Storage / Function endpoint
-    storageEndpoint: 'https://placeholder-func.azurewebsites.net/api/uploadSession' 
+    // Azure Function endpoint for saving repository files
+    storageEndpoint: getEnv('REACT_APP_STORAGE_ENDPOINT') || 'https://placeholder-func.azurewebsites.net/api/uploadSession' 
   },
 
   // Entra ID (Azure AD) Configuration
   auth: {
-    // Auto-enable auth if the Client ID is provided in the environment (and not the default placeholder)
-    enabled: !!process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_ID !== '00000000-0000-0000-0000-000000000000', 
-    clientId: process.env.AZURE_CLIENT_ID || '00000000-0000-0000-0000-000000000000',
-    authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID || 'common'}`,
+    // Auto-enable auth if the Client ID is provided in the environment
+    enabled: !!(getEnv('AZURE_CLIENT_ID') && getEnv('AZURE_CLIENT_ID') !== '00000000-0000-0000-0000-000000000000'), 
+    clientId: getEnv('AZURE_CLIENT_ID') || '00000000-0000-0000-0000-000000000000',
+    authority: `https://login.microsoftonline.com/${getEnv('AZURE_TENANT_ID') || 'common'}`,
     redirectUri: window.location.origin
   }
 };
