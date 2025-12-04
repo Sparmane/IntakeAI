@@ -113,22 +113,23 @@ The application includes a pre-built Login Screen and Auth Service compatible wi
     *   In the Azure Portal resource, go to **Settings > Environment variables**.
     *   Add the variables listed in Section 1.
 
-### Option 2: Azure Web App (App Service)
+### Option 2: Azure Web App (App Service) - Node.js
 
-If you prefer a standard App Service Plan (e.g., for VNET integration or specific scaling needs):
+This method uses the `server.js` (Express) script to serve the application, which is robust for standard App Service Plans.
 
-1.  **Build the Project**:
-    Run `npm install` followed by `npm run build`. This creates a `dist` folder.
-    
-2.  **Deploy**:
-    Deploy the contents of the `dist` folder to your App Service.
-    *   **Windows (IIS)**: Ensure `web.config` is included in the root of your deployment to handle client-side routing.
-    *   **Linux (Node)**: You may need a simple `server.js` (Express/Serve) to serve the static files, or use PM2 to serve the folder.
+1.  **Build**:
+    Run `npm install` followed by `npm run build`. This creates a `dist` folder with the compiled assets.
 
-3.  **Startup Command (Linux)**:
-    If deploying to a Node runtime on Linux, set the startup command to serve the static folder:
-    `npx serve -s dist`
+2.  **Prepare Artifact**:
+    Ensure `server.js`, `package.json`, `node_modules`, and the `dist` folder are included in your deployment artifact.
 
-4.  **Environment Variables**:
+3.  **Deployment**:
+    Deploy to an Azure Web App configured with a **Node.js runtime**.
+
+4.  **Startup Command**:
+    Azure usually detects `npm start` automatically. If not, set the startup command to:
+    `node server.js`
+
+5.  **Environment Variables**:
     Add the variables in **Settings > Configuration** in the Azure Portal.
-    *Note: Since this is a static build, environment variables are baked in at build time. For runtime environment variable injection in App Service, you may need a runtime config loader pattern.*
+    *   Note: `PORT` is automatically injected by Azure, and `server.js` is configured to listen on it.
